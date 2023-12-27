@@ -102,7 +102,7 @@ def render_chat_history() -> str:
 @st.cache_data
 def get_available_models(llm_provider: str) -> list[str]:
   if llm_provider == LLMType.OLLAMA.value:
-    response = requests.get("http://localhost:11434/api/tags")
+    response = requests.get("http://127.0.0.1:11434/api/tags")
     if response.status_code == 200:
       models = [m["name"] for m in response.json()["models"]]
     else: 
