@@ -45,12 +45,14 @@ class StreamHandler(BaseCallbackHandler):
   def on_llm_new_token(self, token: str, **kwargs) -> None:
     processing_message = "PROCESSING" in token
     if not processing_message:
+      print(token)
       self.text += token
       self.container.markdown(self.text)
 
 class LLMType(Enum):
   OPENROUTER = "OpenRouter"
   OLLAMA = "Ollama"
+  LMSTUDIO = "LM Studio"
 
 def create_llm(provider: str, model: str, stream_handler: StreamHandler) -> LLM:
   if provider == LLMType.OLLAMA.value:
@@ -69,7 +71,15 @@ def create_llm(provider: str, model: str, stream_handler: StreamHandler) -> LLM:
         "HTTP-Referer": "https://streamlit.io/",
         "X-Title": "Streamlit OpenSource Chat"
       }
-    )    
+    ) 
+  elif provider == LLMType.LMSTUDIO.value:
+    client = ChatOpenAI(
+      model=model, 
+      streaming=True, 
+      callbacks=[stream_handler],
+      api_key=os.getenv("OPENROUTER_API_KEY"),
+      base_url="http://127.0.0.1:1234/v1"     
+    )
   return client
 
 def create_agent(stream_handler: StreamHandler, tool_handler: ToolHandler) -> AgentExecutor:
@@ -113,9 +123,39 @@ def get_available_models(llm_provider: str) -> list[str]:
       models = [m["id"] for m in response.json()["data"]]
     else:
       models = []
+  elif llm_provider == LLMType.LMSTUDIO.value:
+    response = requests.get("http://127.0.0.1:1234/v1/models")
+    if response.status_code == 200:
+      models = [m["id"] for m in response.json()["data"]]
+    else:
+      models = []
   else:
     models = []  
   return models
+
+def ollama_is_available() -> bool:
+  try:
+    response = requests.get("http://127.0.0.1:11434/api/tags")
+    return response.status_code == 200
+  except:
+    return False
+
+def lm_studio_is_available() -> bool:
+  try:
+    response = requests.get("http://127.0.0.1:1234/v1/models")
+    return response.status_code == 200
+  except:
+    return False
+
+@st.cache_data
+def get_available_providers() -> list[str]:
+  providers = []
+  if ollama_is_available():
+    providers.append(LLMType.OLLAMA.value)
+  if lm_studio_is_available():
+    providers.append(LLMType.LMSTUDIO.value)
+  providers.append(LLMType.OPENROUTER.value)
+  return providers
 
 if __name__ == "__main__":
   openai_key = os.getenv("OPENAI_API_KEY")
@@ -125,7 +165,7 @@ if __name__ == "__main__":
   with st.sidebar:
     llm_provider = st.selectbox(
       "LLM Provider", 
-      [LLMType.OLLAMA.value, LLMType.OPENROUTER.value], 
+      get_available_providers(), 
       index=0
     )
     models = get_available_models(llm_provider)
