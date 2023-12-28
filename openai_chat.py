@@ -15,8 +15,6 @@ if __name__ == "__main__":
       help="Will use `gpt-3.5-turbo`")
     if openai_key:
       os.environ["OPENAI_API_KEY"] = openai_key
-      
-  client = OpenAI()
   
   if "openai_model" not in st.session_state:
     st.session_state["openai_model"] = "gpt-3.5-turbo"
@@ -30,6 +28,7 @@ if __name__ == "__main__":
           st.markdown(message["content"])
   
   if openai_key:  
+    client = OpenAI()
     if prompt := st.chat_input("What is up?"):
       st.session_state.messages.append({"role": "user", "content": prompt})
       with st.chat_message("user"):
