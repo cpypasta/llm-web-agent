@@ -1,12 +1,21 @@
-import streamlit as st
+import streamlit as st, os
 from dotenv import load_dotenv
 from openai import OpenAI
 
 load_dotenv()
 
 if __name__ == "__main__":
-  st.title("OpenAI Chat")
+  st.title("🤖 OpenAI Chat")
   
+  with st.sidebar:
+    openai_key = st.text_input(
+      "OpenAI API Key", 
+      os.getenv("OPENAI_API_KEY"), 
+      type="password",
+      help="Will use `gpt-3.5-turbo`")
+    if openai_key:
+      os.environ["OPENAI_API_KEY"] = openai_key
+      
   client = OpenAI()
   
   if "openai_model" not in st.session_state:

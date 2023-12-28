@@ -1,6 +1,5 @@
 import streamlit as st, os, requests, together
 from enum import Enum
-from openrouter import OpenRouter
 from typing import Any
 from streamlit.delta_generator import DeltaGenerator
 from streamlit.elements.lib.mutable_status_container import StatusContainer
@@ -59,7 +58,6 @@ def create_llm(provider: str, model: str, temp: int, max_tokens: int, stream_han
     client = Ollama(
       model=model,
       temperature=temp,
-      max_tokens=max_tokens,
       callbacks=[stream_handler]
     )  
   else:
@@ -164,10 +162,10 @@ def get_available_providers() -> list[str]:
 if __name__ == "__main__":
   openai_key = os.getenv("OPENAI_API_KEY")
   
-  st.title("OpenSource Chat")
+  st.title("🤖 OpenSource Chat")
   
   with st.expander("About App", expanded=False):
-    st.markdown("""This app is a playground for chatting with various OpenSource large language models.""")
+    st.markdown("""This app is a playground for chatting with various OpenSource large language models. In order to use local providers, you should run this Streamlit app locally.""")
     st.markdown("The following hosting providers are supported:")
     st.dataframe([
       {"Provider": "OpenRouter", "type": "online", "port": "None"},
@@ -175,7 +173,6 @@ if __name__ == "__main__":
       {"Provider": "Ollama", "type": "local", "port": "11434"},
       {"Provider": "LM Studio", "type": "local", "port": "1234"},
     ], hide_index=True)
-    st.warning("In order to use local providers, you should run this Streamlit app locally.")
     st.warning("Not all models are chat models. Moreover, every model is different, so expect different results.")
   
   with st.sidebar:
@@ -199,7 +196,7 @@ if __name__ == "__main__":
     with st.expander("Options"):
       system_prompt = st.text_area("System Prompt", "You are an AI assistant.")
       llm_temp = st.slider("Temperature", 0.0, 2.0, 0.7, 0.1)
-      llm_output_tokens = st.slider("Max Output Tokens", 1024, 4096, 1024, 512)
+      llm_output_tokens = st.slider("Max Output Tokens", 1024, 4096, 1024, 512, help="Does not work for Ollama.")
   
   is_new_conversation = "messages" not in st.session_state
   if is_new_conversation:

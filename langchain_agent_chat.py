@@ -19,9 +19,8 @@ class ToolHandler(BaseCallbackHandler):
   status: StatusContainer
   tool_input: str
   
-  def __init__(self, container: DeltaGenerator, logger: list[str], initial_text: str = ""):
+  def __init__(self, container: DeltaGenerator, logger: list[str]):
     self.container = container
-    self.text=initial_text
     self.logger = logger
   def on_tool_start(self, serialized: dict[str, Any], input_str: str, **kwargs) -> None:
     with self.container:
@@ -45,7 +44,7 @@ class StreamHandler(BaseCallbackHandler):
 if __name__ == "__main__":
   openai_key = os.getenv("OPENAI_API_KEY")
   
-  st.title("LangChain Agent Chat")
+  st.title("🤖 OpenAI Agent Chat")
   
   with st.sidebar:
     st.markdown("""
@@ -55,7 +54,7 @@ if __name__ == "__main__":
       3. `python`: a Python REPL
       4. `llm-math`: adds math capabilities
     """)
-    openai_key_input = st.text_input("OpenAI API Key", openai_key, type="password")
+    openai_key_input = st.text_input("OpenAI API Key", openai_key, type="password", help="Will use `gpt-3.5-turbo`")
     
   if "messages" not in st.session_state:
     st.session_state["messages"] = []
