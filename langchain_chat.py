@@ -38,23 +38,26 @@ if __name__ == "__main__":
       st.markdown(message["content"])
       chat_history += f"{message['role']}: {message['content']}\n"
   
-  if prompt := st.chat_input("What is up?"):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-      st.markdown(prompt)
-    with st.chat_message("assistant"):
-      message_placeholder = st.empty()
-      stream_handler = StreamHandler(message_placeholder)
-      client = ChatOpenAI(model="gpt-3.5-turbo", streaming=True, callbacks=[stream_handler])
-      prompt_template = ChatPromptTemplate.from_messages([
-        ("system", "You are an AI assistant."),
-        ("user", """
-        {chat_history}     
-        user: {human_input}
-        assistant:""")
-      ])      
-      chain = LLMChain(llm=client, prompt=prompt_template)      
-      full_response = chain.run(human_input=prompt, chat_history=chat_history)
-      message_placeholder.markdown(full_response)
-    
-    st.session_state.messages.append({"role": "assistant", "content": full_response})
+  if openai_key:
+    if prompt := st.chat_input("What is up?"):
+      st.session_state.messages.append({"role": "user", "content": prompt})
+      with st.chat_message("user"):
+        st.markdown(prompt)
+      with st.chat_message("assistant"):
+        message_placeholder = st.empty()
+        stream_handler = StreamHandler(message_placeholder)
+        client = ChatOpenAI(model="gpt-3.5-turbo", streaming=True, callbacks=[stream_handler])
+        prompt_template = ChatPromptTemplate.from_messages([
+          ("system", "You are an AI assistant."),
+          ("user", """
+          {chat_history}     
+          user: {human_input}
+          assistant:""")
+        ])      
+        chain = LLMChain(llm=client, prompt=prompt_template)      
+        full_response = chain.run(human_input=prompt, chat_history=chat_history)
+        message_placeholder.markdown(full_response)
+      
+      st.session_state.messages.append({"role": "assistant", "content": full_response})
+  else:
+    st.warning("Please enter an OpenAI API Key.")      
