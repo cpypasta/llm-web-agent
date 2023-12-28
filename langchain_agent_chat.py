@@ -42,8 +42,6 @@ class StreamHandler(BaseCallbackHandler):
     self.container.markdown(self.text)
 
 if __name__ == "__main__":
-  openai_key = os.getenv("OPENAI_API_KEY")
-  
   st.title("🤖 OpenAI Agent Chat")
   
   with st.sidebar:
@@ -54,22 +52,27 @@ if __name__ == "__main__":
       3. `python`: a Python REPL
       4. `llm-math`: adds math capabilities
     """)
-    openai_key_input = st.text_input("OpenAI API Key", openai_key, type="password", help="Will use `gpt-3.5-turbo`")
-    
-  if "messages" not in st.session_state:
-    st.session_state["messages"] = []
-
-  # chat history
-  chat_history = ""
-  for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-      if "tool" in message and len(message["tool"]) > 0:
-        with st.status(message["tool"][0], state="complete", expanded=False):
-          st.code(message["tool"][1])
-      st.markdown(message["content"])
-      chat_history += f"{message['role']}: {message['content']}\n"
+    openai_key_input = st.text_input(
+      "OpenAI API Key", 
+      os.getenv("OPENAI_API_KEY"), 
+      type="password", 
+      help="Will use `gpt-3.5-turbo`"
+    )
   
   if openai_key_input:
+    if "messages" not in st.session_state:
+      st.session_state["messages"] = []
+
+    # chat history
+    chat_history = ""
+    for message in st.session_state.messages:
+      with st.chat_message(message["role"]):
+        if "tool" in message and len(message["tool"]) > 0:
+          with st.status(message["tool"][0], state="complete", expanded=False):
+            st.code(message["tool"][1])
+        st.markdown(message["content"])
+        chat_history += f"{message['role']}: {message['content']}\n"    
+    
     if prompt := st.chat_input("what tools do you have access to?"):
       st.session_state.messages.append({"role": "user", "content": prompt})
       with st.chat_message("user"):
