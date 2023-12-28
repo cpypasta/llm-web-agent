@@ -45,7 +45,6 @@ class StreamHandler(BaseCallbackHandler):
   def on_llm_new_token(self, token: str, **kwargs) -> None:
     processing_message = "PROCESSING" in token
     if not processing_message:
-      print(token)
       self.text += token
       self.container.markdown(self.text)
 
@@ -77,7 +76,7 @@ def create_llm(provider: str, model: str, stream_handler: StreamHandler) -> LLM:
       model=model, 
       streaming=True, 
       callbacks=[stream_handler],
-      api_key=os.getenv("OPENROUTER_API_KEY"),
+      api_key="key",
       base_url="http://127.0.0.1:1234/v1"     
     )
   return client
@@ -162,12 +161,27 @@ if __name__ == "__main__":
   
   st.title("OpenSource Chat")
   
+  with st.expander("About App", expanded=False):
+    st.markdown("""This app is a playground for chatting with various OpenSource large language models. In order to 
+    use local providers, you should run this Streamlit app locally.""")
+    st.markdown("The following hosting providers are supported:")
+    st.dataframe([
+      {"Provider": "OpenRouter", "type": "online", "port": "None"},
+      {"Provider": "Ollama", "type": "local", "port": "11434"},
+      {"Provider": "LM Studio", "type": "local", "port": "1234"},
+    ], hide_index=True)
+  
   with st.sidebar:
     llm_provider = st.selectbox(
       "LLM Provider", 
       get_available_providers(), 
       index=0
     )
+    if llm_provider == LLMType.OPENROUTER.value:
+      openrouter_key = st.text_input("OpenRouter API Key", os.getenv("OPENROUTER_API_KEY"), type="password")
+      if openrouter_key:
+        os.environ["OPENROUTER_API_KEY"] = openrouter_key
+      
     models = get_available_models(llm_provider)
     llm_model = st.selectbox("LLM Model", models, index=0)
   
