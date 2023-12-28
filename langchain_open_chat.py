@@ -1,4 +1,4 @@
-import streamlit as st, os, requests, openai
+import streamlit as st, os, requests, together
 from enum import Enum
 from openrouter import OpenRouter
 from typing import Any
@@ -52,33 +52,36 @@ class LLMType(Enum):
   OPENROUTER = "OpenRouter"
   OLLAMA = "Ollama"
   LMSTUDIO = "LM Studio"
+  TOGETHER = "together.ai"
 
-def create_llm(provider: str, model: str, stream_handler: StreamHandler) -> LLM:
+def create_llm(provider: str, model: str, temp: int, max_tokens: int, stream_handler: StreamHandler) -> LLM:
   if provider == LLMType.OLLAMA.value:
     client = Ollama(
       model=model,
+      temperature=temp,
+      max_tokens=max_tokens,
       callbacks=[stream_handler]
     )  
-  elif provider == LLMType.OPENROUTER.value:
+  else:
+    if provider == LLMType.OPENROUTER.value:
+      api_key=os.getenv("OPENROUTER_API_KEY")
+      base_url="https://openrouter.ai/api/v1"
+    elif provider == LLMType.LMSTUDIO.value:
+      api_key="key"
+      base_url="http://127.0.0.1:1234/v1"        
+    elif provider == LLMType.TOGETHER.value:
+      api_key=os.getenv("TOGETHER_API_KEY")
+      base_url="https://api.together.xyz/v1"
     client = ChatOpenAI(
       model=model, 
       streaming=True, 
       callbacks=[stream_handler],
-      api_key=os.getenv("OPENROUTER_API_KEY"),
-      base_url="https://openrouter.ai/api/v1",
-      default_headers={
-        "HTTP-Referer": "https://streamlit.io/",
-        "X-Title": "Streamlit OpenSource Chat"
-      }
-    ) 
-  elif provider == LLMType.LMSTUDIO.value:
-    client = ChatOpenAI(
-      model=model, 
-      streaming=True, 
-      callbacks=[stream_handler],
-      api_key="key",
-      base_url="http://127.0.0.1:1234/v1"     
-    )
+      temperature=temp,
+      max_tokens=max_tokens,
+      api_key=api_key,
+      base_url=base_url
+    )    
+      
   return client
 
 def create_agent(stream_handler: StreamHandler, tool_handler: ToolHandler) -> AgentExecutor:
@@ -128,6 +131,8 @@ def get_available_models(llm_provider: str) -> list[str]:
       models = [m["id"] for m in response.json()["data"]]
     else:
       models = []
+  elif llm_provider == LLMType.TOGETHER.value:
+    models = [m["name"] for m in together.Models.list()]
   else:
     models = []  
   return models
@@ -153,7 +158,7 @@ def get_available_providers() -> list[str]:
     providers.append(LLMType.OLLAMA.value)
   if lm_studio_is_available():
     providers.append(LLMType.LMSTUDIO.value)
-  providers.append(LLMType.OPENROUTER.value)
+  providers.extend([LLMType.OPENROUTER.value, LLMType.TOGETHER.value])
   return providers
 
 if __name__ == "__main__":
@@ -162,14 +167,16 @@ if __name__ == "__main__":
   st.title("OpenSource Chat")
   
   with st.expander("About App", expanded=False):
-    st.markdown("""This app is a playground for chatting with various OpenSource large language models. In order to 
-    use local providers, you should run this Streamlit app locally.""")
+    st.markdown("""This app is a playground for chatting with various OpenSource large language models.""")
     st.markdown("The following hosting providers are supported:")
     st.dataframe([
       {"Provider": "OpenRouter", "type": "online", "port": "None"},
+      {"Provider": "Together.ai", "type": "online", "port": "None"},
       {"Provider": "Ollama", "type": "local", "port": "11434"},
       {"Provider": "LM Studio", "type": "local", "port": "1234"},
     ], hide_index=True)
+    st.warning("In order to use local providers, you should run this Streamlit app locally.")
+    st.warning("Not all models are chat models. Moreover, every model is different, so expect different results.")
   
   with st.sidebar:
     llm_provider = st.selectbox(
@@ -181,9 +188,18 @@ if __name__ == "__main__":
       openrouter_key = st.text_input("OpenRouter API Key", os.getenv("OPENROUTER_API_KEY"), type="password")
       if openrouter_key:
         os.environ["OPENROUTER_API_KEY"] = openrouter_key
+    elif llm_provider == LLMType.TOGETHER.value:
+      together_key = st.text_input("Together.ai API Key", os.getenv("TOGETHER_API_KEY"), type="password")
+      if together_key:
+        os.environ["TOGETHER_API_KEY"] = together_key
+        together.api_key = together_key
       
     models = get_available_models(llm_provider)
     llm_model = st.selectbox("LLM Model", models, index=0)
+    with st.expander("Options"):
+      system_prompt = st.text_area("System Prompt", "You are an AI assistant.")
+      llm_temp = st.slider("Temperature", 0.0, 2.0, 0.7, 0.1)
+      llm_output_tokens = st.slider("Max Output Tokens", 1024, 4096, 1024, 512)
   
   is_new_conversation = "messages" not in st.session_state
   if is_new_conversation:
@@ -198,9 +214,9 @@ if __name__ == "__main__":
     with st.chat_message("assistant"):
       message_placeholder = st.empty()
       stream_handler = StreamHandler(message_placeholder)
-      client = create_llm(llm_provider, llm_model, stream_handler)
+      client = create_llm(llm_provider, llm_model, llm_temp, llm_output_tokens, stream_handler)
       prompt_template = ChatPromptTemplate.from_messages([
-        ("system", "You are an AI assistant."),
+        ("system", system_prompt),
         ("user", """
         {chat_history}     
         user: {human_input}
@@ -211,10 +227,14 @@ if __name__ == "__main__":
         full_response = chain.run(human_input=prompt, chat_history=chat_history)
       except Exception as e:
         print(e)
-        full_response = stream_handler.text
+        if stream_handler.text:
+          full_response = stream_handler.text
+        else:
+          full_response = f"ERROR:{e}"
       message_placeholder.markdown(full_response)
     
-    st.session_state.messages.append({
-      "role": "assistant", 
-      "content": full_response
-    })
+    if not full_response.startswith("ERROR:"):
+      st.session_state.messages.append({
+        "role": "assistant", 
+        "content": full_response
+      })

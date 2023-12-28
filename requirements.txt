@@ -8,3 +8,4 @@ langchain-experimental==0.0.47
 duckduckgo-search==4.1.1
 numexpr==2.8.8
 requests==2.31.0
+together==0.2.10
