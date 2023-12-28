@@ -110,14 +110,14 @@ def render_chat_history() -> str:
   return chat_history
 
 @st.cache_data
-def get_available_models(llm_provider: str) -> list[str]:
+def get_available_models(llm_provider: str, openrouter_key: str, together_key: str) -> list[str]:
   if llm_provider == LLMType.OLLAMA.value:
     response = requests.get("http://127.0.0.1:11434/api/tags")
     if response.status_code == 200:
       models = [m["name"] for m in response.json()["models"]]
     else: 
       models = []
-  elif llm_provider == LLMType.OPENROUTER.value:
+  elif llm_provider == LLMType.OPENROUTER.value and openrouter_key:
     response = requests.get("https://openrouter.ai/api/v1/models")
     if response.status_code == 200:
       models = [m["id"] for m in response.json()["data"]]
@@ -129,7 +129,7 @@ def get_available_models(llm_provider: str) -> list[str]:
       models = [m["id"] for m in response.json()["data"]]
     else:
       models = []
-  elif llm_provider == LLMType.TOGETHER.value:
+  elif llm_provider == LLMType.TOGETHER.value and together_key:
     models = [m["name"] for m in together.Models.list()]
   else:
     models = []  
@@ -191,7 +191,7 @@ if __name__ == "__main__":
         os.environ["TOGETHER_API_KEY"] = together_key
         together.api_key = together_key
       
-    models = get_available_models(llm_provider)
+    models = get_available_models(llm_provider, openrouter_key, together_key)
     llm_model = st.selectbox("LLM Model", models, index=0)
     with st.expander("Options"):
       system_prompt = st.text_area("System Prompt", "You are an AI assistant.")
@@ -204,34 +204,37 @@ if __name__ == "__main__":
   else:
     chat_history = render_chat_history()
   
-  if prompt := st.chat_input("What would you like to talk about?"):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-      st.markdown(prompt)
-    with st.chat_message("assistant"):
-      message_placeholder = st.empty()
-      stream_handler = StreamHandler(message_placeholder)
-      client = create_llm(llm_provider, llm_model, llm_temp, llm_output_tokens, stream_handler)
-      prompt_template = ChatPromptTemplate.from_messages([
-        ("system", system_prompt),
-        ("user", """
-        {chat_history}     
-        user: {human_input}
-        assistant:""")
-      ])      
-      chain = LLMChain(llm=client, prompt=prompt_template)  
-      try:    
-        full_response = chain.run(human_input=prompt, chat_history=chat_history)
-      except Exception as e:
-        print(e)
-        if stream_handler.text:
-          full_response = stream_handler.text
-        else:
-          full_response = f"ERROR:{e}"
-      message_placeholder.markdown(full_response)
-    
-    if not full_response.startswith("ERROR:"):
-      st.session_state.messages.append({
-        "role": "assistant", 
-        "content": full_response
-      })
+  if len(models) > 0:
+    if prompt := st.chat_input("What would you like to talk about?"):
+      st.session_state.messages.append({"role": "user", "content": prompt})
+      with st.chat_message("user"):
+        st.markdown(prompt)
+      with st.chat_message("assistant"):
+        message_placeholder = st.empty()
+        stream_handler = StreamHandler(message_placeholder)
+        client = create_llm(llm_provider, llm_model, llm_temp, llm_output_tokens, stream_handler)
+        prompt_template = ChatPromptTemplate.from_messages([
+          ("system", system_prompt),
+          ("user", """
+          {chat_history}     
+          user: {human_input}
+          assistant:""")
+        ])      
+        chain = LLMChain(llm=client, prompt=prompt_template)  
+        try:    
+          full_response = chain.run(human_input=prompt, chat_history=chat_history)
+        except Exception as e:
+          print(e)
+          if stream_handler.text:
+            full_response = stream_handler.text
+          else:
+            full_response = f"ERROR:{e}"
+        message_placeholder.markdown(full_response)
+      
+      if not full_response.startswith("ERROR:"):
+        st.session_state.messages.append({
+          "role": "assistant", 
+          "content": full_response
+        })
+  else:
+    st.warning("Please provide the necessary API key.")
