@@ -202,8 +202,15 @@ if __name__ == "__main__":
     llm_model = st.selectbox("LLM Model", models, index=0)
     with st.expander("Options"):
       system_prompt = st.text_area("System Prompt", "You are an AI assistant.")
+      stop_words = st.text_input("Stop Words", "", help="Comma separated list of words to stop on.")
+      if stop_words:
+        stop_words = [s.strip() for s in stop_words.split(",")]
       llm_temp = st.slider("Temperature", 0.0, 2.0, 0.7, 0.1)
       llm_output_tokens = st.slider("Max Output Tokens", 1024, 4096, 1024, 512, help="Does not work for Ollama.")
+    clear_chat_btn = st.button("Clear Chat", use_container_width=True)
+    if clear_chat_btn:
+      if "messages" in st.session_state:
+        del st.session_state["messages"]
   
   is_new_conversation = "messages" not in st.session_state
   if is_new_conversation:
@@ -229,11 +236,11 @@ if __name__ == "__main__":
         ])      
         chain = LLMChain(llm=client, prompt=prompt_template)  
         try:    
-          full_response = chain.run(human_input=prompt, chat_history=chat_history)
+          full_response = chain.run(human_input=prompt, chat_history=chat_history, stop=stop_words)
         except Exception as e:
           print(e)
           if stream_handler.text:
-            full_response = stream_handler.text
+            full_response = stream_handler.text            
           else:
             full_response = f"ERROR:{e}"
         message_placeholder.markdown(full_response)
