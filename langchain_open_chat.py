@@ -236,7 +236,10 @@ if __name__ == "__main__":
         ])      
         chain = LLMChain(llm=client, prompt=prompt_template)  
         try:    
-          full_response = chain.run(human_input=prompt, chat_history=chat_history, stop=stop_words)
+          if stop_words:
+            full_response = chain.run(human_input=prompt, chat_history=chat_history, stop=stop_words)
+          else:
+            full_response = chain.run(human_input=prompt, chat_history=chat_history)
         except Exception as e:
           print(e)
           if stream_handler.text:

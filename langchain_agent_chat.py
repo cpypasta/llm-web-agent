@@ -41,6 +41,18 @@ class StreamHandler(BaseCallbackHandler):
     self.text += token
     self.container.markdown(self.text)
 
+def render_chat_history() -> str:
+  chat_history = ""
+  for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+      if "tool" in message and len(message["tool"]) > 0:
+        with st.status(message["tool"][0], state="complete", expanded=False):
+          st.code(message["tool"][1])
+      st.markdown(message["content"])
+      chat_history += f"{message['role']}: {message['content']}\n" 
+  return chat_history
+
+
 if __name__ == "__main__":
   st.title("🤖 OpenAI Agent Chat")
   
@@ -58,20 +70,21 @@ if __name__ == "__main__":
       type="password", 
       help="Will use `gpt-3.5-turbo`"
     )
+    clear_chat_btn = st.button("Clear Chat", use_container_width=True)
+    if clear_chat_btn:
+      if "messages" in st.session_state:
+        del st.session_state["messages"]    
   
   if openai_key_input:
     if "messages" not in st.session_state:
       st.session_state["messages"] = []
 
     # chat history
-    chat_history = ""
-    for message in st.session_state.messages:
-      with st.chat_message(message["role"]):
-        if "tool" in message and len(message["tool"]) > 0:
-          with st.status(message["tool"][0], state="complete", expanded=False):
-            st.code(message["tool"][1])
-        st.markdown(message["content"])
-        chat_history += f"{message['role']}: {message['content']}\n"    
+    is_new_conversation = "messages" not in st.session_state
+    if is_new_conversation:
+      st.session_state["messages"] = []
+    else:
+      chat_history = render_chat_history()   
     
     if prompt := st.chat_input("what tools do you have access to?"):
       st.session_state.messages.append({"role": "user", "content": prompt})
@@ -112,6 +125,7 @@ if __name__ == "__main__":
         agent = AgentExecutor(agent=chain, tools=tools, verbose=True, handle_parsing_errors=True)
         full_response = agent.invoke({"human_input": prompt, "chat_history": chat_history})
         full_response = full_response["output"]
+        # print(full_response)
         message_placeholder.markdown(full_response)
       
       st.session_state.messages.append({
